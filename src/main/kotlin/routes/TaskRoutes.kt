@@ -8,12 +8,13 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.pebbletemplates.pebble.PebbleEngine
 import java.io.StringWriter
+import java.io.File
 
 /**
- * NOTE FOR NON-INTELLIJ IDEs (VSCode, Eclipse, etc.):
- * IntelliJ IDEA automatically adds imports as you type. If using a different IDE,
- * you may need to manually add imports. The commented imports below show what you'll need
- * for future weeks. Uncomment them as needed when following the lab instructions.
+ * NOTE FOR NON-INTELLIJ IDEs (VSCode, Eclipse, etc.): IntelliJ IDEA automatically adds imports as
+ * you type. If using a different IDE, you may need to manually add imports. The commented imports
+ * below show what you'll need for future weeks. Uncomment them as needed when following the lab
+ * instructions.
  *
  * When using IntelliJ: You can ignore the commented imports below - your IDE will handle them.
  */
@@ -44,52 +45,53 @@ import java.io.StringWriter
  * - Week 7: Add toggle, inline edit
  * - Week 8: Add pagination, search
  */
-
 fun Route.taskRoutes() {
     val pebble =
-        PebbleEngine
-            .Builder()
-            .loader(
-                io.pebbletemplates.pebble.loader.ClasspathLoader().apply {
-                    prefix = "templates/"
-                },
-            ).build()
+            PebbleEngine.Builder()
+                    .loader(
+                            io.pebbletemplates.pebble.loader.ClasspathLoader().apply {
+                                prefix = "templates/"
+                            },
+                    )
+                    .build()
 
-    /**
-     * Helper: Check if request is from HTMX
-     */
-    fun ApplicationCall.isHtmx(): Boolean = request.headers["HX-Request"]?.equals("true", ignoreCase = true) == true
+    /** Helper: Check if request is from HTMX */
+    fun ApplicationCall.isHtmx(): Boolean =
+            request.headers["HX-Request"]?.equals("true", ignoreCase = true) == true
+    // 根路径重定向到 /tasks
+    get("/") { 
+        call.respondRedirect("/tasks")
+    }
 
-    /**
-     * GET /tasks - List all tasks
-     * Returns full page (no HTMX differentiation in Week 6)
-     */
+    /** GET /tasks - List all tasks Returns full page (no HTMX differentiation in Week 6) */
     get("/tasks") {
         val model =
-            mapOf(
-                "title" to "Tasks",
-                "tasks" to TaskRepository.all(),
-            )
+                mapOf(
+                        "title" to "Tasks",
+                        "tasks" to TaskRepository.all(),
+                )
         val template = pebble.getTemplate("tasks/index.peb")
         val writer = StringWriter()
         template.evaluate(writer, model)
         call.respondText(writer.toString(), ContentType.Text.Html)
     }
 
-    /**
-     * POST /tasks - Add new task
-     * Dual-mode: HTMX fragment or PRG redirect
-     */
+    /** POST /tasks - Add new task Dual-mode: HTMX fragment or PRG redirect */
     post("/tasks") {
         val title = call.receiveParameters()["title"].orEmpty().trim()
 
         if (title.isBlank()) {
             // Validation error handling
             if (call.isHtmx()) {
-                val error = """<div id="status" hx-swap-oob="true" role="alert" aria-live="assertive">
+                val error =
+                        """<div id="status" hx-swap-oob="true" role="alert" aria-live="assertive">
                     Title is required. Please enter at least one character.
                 </div>"""
-                return@post call.respondText(error, ContentType.Text.Html, HttpStatusCode.BadRequest)
+                return@post call.respondText(
+                        error,
+                        ContentType.Text.Html,
+                        HttpStatusCode.BadRequest
+                )
             } else {
                 // No-JS: redirect back (could add error query param)
                 call.response.headers.append("Location", "/tasks")
@@ -101,7 +103,8 @@ fun Route.taskRoutes() {
 
         if (call.isHtmx()) {
             // Return HTML fragment for new task
-            val fragment = """<li id="task-${task.id}">
+            val fragment =
+                    """<li id="task-${task.id}">
                 <span>${task.title}</span>
                 <form action="/tasks/${task.id}/delete" method="post" style="display: inline;"
                       hx-post="/tasks/${task.id}/delete"
@@ -111,9 +114,14 @@ fun Route.taskRoutes() {
                 </form>
             </li>"""
 
-            val status = """<div id="status" hx-swap-oob="true">Task "${task.title}" added successfully.</div>"""
+            val status =
+                    """<div id="status" hx-swap-oob="true">Task "${task.title}" added successfully.</div>"""
 
-            return@post call.respondText(fragment + status, ContentType.Text.Html, HttpStatusCode.Created)
+            return@post call.respondText(
+                    fragment + status,
+                    ContentType.Text.Html,
+                    HttpStatusCode.Created
+            )
         }
 
         // No-JS: POST-Redirect-GET pattern (303 See Other)
@@ -121,10 +129,7 @@ fun Route.taskRoutes() {
         call.respond(HttpStatusCode.SeeOther)
     }
 
-    /**
-     * POST /tasks/{id}/delete - Delete task
-     * Dual-mode: HTMX empty response or PRG redirect
-     */
+    /** POST /tasks/{id}/delete - Delete task Dual-mode: HTMX empty response or PRG redirect */
     post("/tasks/{id}/delete") {
         val id = call.parameters["id"]?.toIntOrNull()
         val removed = id?.let { TaskRepository.delete(it) } ?: false
