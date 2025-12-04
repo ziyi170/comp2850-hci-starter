@@ -4,3 +4,10 @@
 /out/
 .claude/
 COMPILATION-ISSUES.md
+# --- HCI Week 6-7 Data Privacy Rules ---
+# Sensitive research notes & participant data
+data/tasks.csv
+data/metrics.csv
+wk*/research/*notes.md
+*.log
+data/
